@@ -49,7 +49,7 @@ class Game:
         while not game.is_game_over():
             for player in game.get_Players():
                 print(f"{player.name}'s turn:")
-                player.play_turn(game)
+                player(game)
                 print()
 
         min_score = game.get_Players()[0].get_hand_total()

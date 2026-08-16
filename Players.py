@@ -53,6 +53,10 @@ class Player:
     def get_cards_remaining(self) -> int:
         return self.hand.get_card_count()
 
+    def __call__(self, game: Game) -> None:
+        """Play their turn."""
+        return self.play_turn(game)
+
 
 class HumanPlayer(Player):
     def play_turn(self, game: Game) -> None:

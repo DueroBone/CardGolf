@@ -42,37 +42,46 @@ class NeuralNetworkPlayer(Player):
 
     Output format: [draw_from_discard, draw_from_draw_pile,
     row_0_col_0, row_0_col_1, row_0_col_2, row_1_col_0,
-    row_1_col_1, row_1_col_2, row_2_col_0, row_2_col_1, row_2_col_2]
+    row_1_col_1, row_1_col_2, row_2_col_0, row_2_col_1,
+    row_2_col_2, discard_drawn_card]
     """
 
-    def __init__(self, name: str, model_path: str):
+    def __init__(self, name: str, model_path: str, printable: bool = False):
         super().__init__(name)
         self.model: torch.nn.Module = torch.load(model_path)
         self.model.eval()
+        self.printable = printable
 
     def play_turn(self, game: Game) -> None:
         # Decide whether to draw from the discard pile or the draw pile
-        draw_from_discard, _, __ = self.get_output(game, None)
+        if self._check_top_discarded_card(game):
+            # Only if there is a card in the discard pile
+            draw_from_discard, _, __ = self.get_output(game, None)
+        else:
+            draw_from_discard = False
 
         if draw_from_discard:
             drawn_card = self._get_top_discarded_card(game)
-            print(f"Drew from discard pile: {drawn_card}")
+            print(f"Drew from discard pile: {drawn_card}") if self.printable else None
             if drawn_card is None:
                 raise ValueError("Discard pile is empty. Cannot draw a card.")
         else:
             drawn_card = self._draw(game)
-            print(f"Drew from draw pile: {drawn_card}")
+            print(f"Drew from draw pile: {drawn_card}") if self.printable else None
             if drawn_card is None:
                 raise ValueError("Draw pile is empty. Cannot draw a card.")
 
         # Place the drawn card based on the neural network's prediction
         ___, row, col = self.get_output(game, drawn_card)
 
-        print(
-            f"Placing {drawn_card} at ({row}, {col}) based on neural network prediction"
-        )
+        if row == -1 and col == -1:
+            game.discard_card(drawn_card)
+            print(f"Discarded {drawn_card}") if self.printable else None
+            return
+
+        print(f"Placing {drawn_card} at ({row}, {col})") if self.printable else None
         self._place_card(row, col, drawn_card, game)
-        print(f"New hand:\n{self.hand}\n")
+        print(f"New hand:\n{self.hand}\n") if self.printable else None
 
     def _prepare_input(self, game: Game, drawn_card: Card | None) -> torch.Tensor:
         _top_discarded_card = game.check_discarded_card()
@@ -101,9 +110,7 @@ class NeuralNetworkPlayer(Player):
             min_opponent_cards_remaining,
             opponent_hand_total,
         ]
-        return torch.tensor(input_vector, dtype=torch.float32).unsqueeze(
-            0
-        )  # Add batch dimension
+        return torch.tensor(input_vector, dtype=torch.float32).unsqueeze(0)
 
     def get_output(self, game: Game, drawn_card: Card | None) -> tuple[bool, int, int]:
         """Get the model's output for a given game state and drawn card."""
@@ -111,11 +118,19 @@ class NeuralNetworkPlayer(Player):
         output = self.model(input_tensor)
         draw_from_discard = (
             torch.argmax(output[:, :2]).item() == 1
-        )  # Assuming the first two outputs correspond to draw pile and discard pile
+        )  # Draw pile, discard pile
 
-        row, col = int(torch.argmax(output[:, 2:]).item() // 3), int(
-            torch.argmax(output[:, 2:]).item() % 3
-        )
+        highest_index = 0
+        highest_value = 0
+        for i in range(2, 12):  # 3x3 grid + discard
+            if output[0, i] > highest_value:
+                highest_value = output[0, i]
+                highest_index = i
+        if highest_index == 11:  # Discard drawn card
+            row, col = -1, -1
+        else:
+            row = (highest_index - 2) // 3
+            col = (highest_index - 2) % 3
 
         return draw_from_discard, row, col
 
