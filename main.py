@@ -1,4 +1,4 @@
-import Game
+from GameHolder import Game
 
 def main():
     Game.sample_game()

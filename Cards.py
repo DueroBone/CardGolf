@@ -7,7 +7,9 @@ class Card:
         self.rank = rank
         self.value = rank
 
-        if rank == 1:  # Ace
+        if rank == -1:  # None card
+            self.value = 0
+        elif rank == 1:  # Ace
             self.value = -1
         elif rank in [11, 12]:  # Jack or Queen
             self.value = 10
@@ -28,9 +30,12 @@ class Card:
             "Diamonds": "♦",
             "Clubs": "♣",
             "Spades": "♠",
-            "Joker": "$"
+            "Joker": "$",
+            "None": "x",
         }
-        _rank = {1: "A", 11: "J", 12: "Q", 13: "K", 14: "$"}.get(self.rank, str(self.rank))
+        _rank = {1: "A", 11: "J", 12: "Q", 13: "K", 14: "$", -1: "X"}.get(
+            self.rank, str(self.rank)
+        )
         return f"{_rank}{symbol[self.suit]}"
 
 
@@ -141,11 +146,62 @@ class Hand(RawHand):
             for col in range(3):
                 card = self.get(row, col)
                 if card:
-                    result += str(card) + " "
+                    result += str(card)
                 else:
-                    result += "XX "
+                    result += "--"
+                if col < 2:
+                    result += " "
             result += "\n"
         return result.strip()
+
+    def __check_three_in_a_row_row(self, row: int) -> bool:
+        card_1 = self.raw_get(row, 0)
+        card_2 = self.raw_get(row, 1)
+        card_3 = self.raw_get(row, 2)
+        if card_1 is None or card_2 is None or card_3 is None:
+            return False
+        same_rank = card_1.rank == card_2.rank == card_3.rank
+        return same_rank
+
+    def __check_three_in_a_row_col(self, col: int) -> bool:
+        card_1 = self.raw_get(0, col)
+        card_2 = self.raw_get(1, col)
+        card_3 = self.raw_get(2, col)
+        if card_1 is None or card_2 is None or card_3 is None:
+            return False
+        same_rank = card_1.rank == card_2.rank == card_3.rank
+        return same_rank
+
+    def check_three_in_a_row(self) -> None:
+        for i in range(3):
+            if self.__check_three_in_a_row_row(i):
+                for j in range(3):
+                    self.cards[self._index_of(i, j)] = Card("None", -1)
+        for i in range(3):
+            if self.__check_three_in_a_row_col(i):
+                for j in range(3):
+                    self.cards[self._index_of(j, i)] = Card("None", -1)
+
+        if (
+            self.raw_get(0, 0).rank
+            == self.raw_get(1, 1).rank
+            == self.raw_get(2, 2).rank
+            and self.raw_get(0, 0) is not None
+        ):
+            for i in range(3):
+                self.cards[self._index_of(i, i)] = Card("None", -1)
+        if (
+            self.raw_get(0, 2).rank
+            == self.raw_get(1, 1).rank
+            == self.raw_get(2, 0).rank
+            and self.raw_get(0, 2) is not None
+        ):
+            for i in range(3):
+                self.cards[self._index_of(i, 2 - i)] = Card("None", -1)
+
+    def reveal_all(self) -> None:
+        for i in range(9):
+            self.revealed[i] = True
 
 
 class NullHand(Hand):
@@ -167,6 +223,8 @@ class NullHand(Hand):
     def place(self, row: int, col: int, card: Card) -> Card:
         raise NotImplementedError("NullHand does not support placing cards.")
 
+
 if __name__ == "__main__":
     import main
+
     main.main()
