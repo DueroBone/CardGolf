@@ -74,6 +74,11 @@ class DiscardPile(Deck):
             return self.cards[-1]
         return None
 
+    def draw(self) -> Card | None:
+        if self.cards:
+            return self.cards.pop()
+        return None
+
 
 ######################=- HAND CLASSES -=######################
 
@@ -119,6 +124,9 @@ class Hand(RawHand):
 
     def get_cards(self) -> list[Card | None]:
         return [self.get(*self._to_row_col(i)) for i in range(9)]
+
+    def get_card_count(self) -> int:
+        return sum(1 for card in self.get_cards() if card is not None)
 
     def get_total(self) -> int:
         total = 0

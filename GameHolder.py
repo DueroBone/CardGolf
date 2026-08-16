@@ -20,8 +20,11 @@ class Game:
     def discard_card(self, card: Card) -> None:
         self.discard_pile.add_card(card)
 
-    def get_discarded_pile(self) -> Card | None:
+    def check_discarded_card(self) -> Card | None:
         return self.discard_pile.top_card()
+
+    def get_discard_card(self) -> Card | None:
+        return self.discard_pile.draw()
 
     def is_game_over(self) -> bool:
         # Check if the draw pile is empty
@@ -33,6 +36,9 @@ class Game:
             hand_cards = player.get_revealed_cards()
             return all(card is not None for card in hand_cards)
         return False
+
+    def get_opponents(self, current_player: Player) -> list[Player]:
+        return [player for player in self.Player if player != current_player]
 
     @staticmethod
     def sample_game():

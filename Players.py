@@ -30,10 +30,13 @@ class Player:
         raise NotImplementedError()
 
     def _check_top_discarded_card(self, game: Game) -> Card | None:
-        return game.get_discarded_pile()
+        return game.check_discarded_card()
 
     def _draw(self, game: Game) -> Card:
         return game.draw_card()
+
+    def _get_top_discarded_card(self, game: Game) -> Card | None:
+        return game.get_discard_card()
 
     def _place_card(self, row: int, col: int, card: Card, game: Game) -> None:
         discarded = self.hand.place(row, col, card)
@@ -46,6 +49,9 @@ class Player:
 
     def on_endgame(self) -> None:
         self.hand.reveal_all()
+
+    def get_cards_remaining(self) -> int:
+        return self.hand.get_card_count()
 
 
 class HumanPlayer(Player):
