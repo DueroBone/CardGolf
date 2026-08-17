@@ -1,6 +1,7 @@
 import random
 from typing import TYPE_CHECKING
 from Cards import Hand, NullHand, Card
+from MyErrors import IllegalMoveError
 
 if TYPE_CHECKING:
     from GameHolder import Game
@@ -20,6 +21,9 @@ class Player:
 
     def get_hand_total(self) -> int:
         return self.hand.get_total()
+
+    def get_raw_hand_total(self) -> int:
+        return self.hand.raw_get_total()
 
     def _reveal_card(self, row: int, col: int) -> None:
         """Used x3 for begenning of game"""
@@ -83,7 +87,7 @@ class HumanPlayer(Player):
             drawn_card = self._draw(game)
             print(f"Drew from draw pile: {drawn_card}")
             if drawn_card is None:
-                raise ValueError("Draw pile is empty. Cannot draw a card.")
+                raise IllegalMoveError("Draw pile is empty. Cannot draw a card.")
 
         # Place the drawn card
         row = input("Enter the row (0-2) to place the card: ")

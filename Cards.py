@@ -42,6 +42,7 @@ class Card:
 class Deck:
     def __init__(self):
         self.cards: list[Card] = []
+        self.cards_remaining = 0
 
     def shuffle(self) -> Deck:
         random.shuffle(self.cards)
@@ -55,7 +56,9 @@ class DrawPile(Deck):
         self.shuffle()
 
     def draw(self) -> Card:
-        return self.cards.pop()
+        to_return = self.cards.pop()
+        self.cards_remaining = len(self.cards)
+        return to_return
 
     def __build(self) -> None:
         for suit in ["Hearts", "Diamonds", "Clubs", "Spades"]:
@@ -63,6 +66,7 @@ class DrawPile(Deck):
                 self.cards.append(Card(suit, rank))
         self.cards.append(Card("Joker", 14))
         self.cards.append(Card("Joker", 14))
+        self.cards_remaining = len(self.cards)
 
 
 class DiscardPile(Deck):
@@ -76,7 +80,9 @@ class DiscardPile(Deck):
 
     def draw(self) -> Card | None:
         if self.cards:
-            return self.cards.pop()
+            to_return = self.cards.pop()
+            self.cards_remaining = len(self.cards)
+            return to_return
         return None
 
 
@@ -86,6 +92,7 @@ class DiscardPile(Deck):
 class RawHand:
     def __init__(self, deck: DrawPile):
         self.cards: list[Card] = [deck.draw() for _ in range(9)]
+        self.private_total = self.raw_get_total()
 
     def raw_get_cards(self) -> list[Card]:
         return self.cards
@@ -98,6 +105,7 @@ class RawHand:
         return total
 
     def raw_get(self, row: int, col: int) -> Card:
+        # self.private_total = self.raw_get_total()
         return self.cards[self._index_of(row, col)]
 
     @staticmethod

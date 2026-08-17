@@ -1,12 +1,15 @@
 from Cards import DiscardPile, DrawPile, Hand, Card
+from MyErrors import IllegalMoveError
 from Players import Player, DebugPlayer, HumanPlayer
 
 
 class Game:
-    def __init__(self, *Players: Player):
+    def __init__(self, *Players: Player, print_errors: bool = True):
+        self.illegal_move_count = 0
         self.draw_pile = DrawPile()
         self.discard_pile: DiscardPile = DiscardPile()
         self.Player: list[Player] = list(Players)
+        self.print_errors = print_errors
         for player in self.Player:
             _hand = Hand(self.draw_pile)
             player._set_hand(_hand)
@@ -39,6 +42,19 @@ class Game:
 
     def get_opponents(self, current_player: Player) -> list[Player]:
         return [player for player in self.Player if player != current_player]
+
+    def play_round(self) -> None:
+        for player in self.Player:
+            try:
+                player(self)
+            except IllegalMoveError as e:
+                print(f"Illegal move by {player.name}: {e}") if self.print_errors else None
+                self.illegal_move_count += 1
+                continue
+
+    def play_game(self) -> None:
+        while not self.is_game_over():
+            self.play_round()
 
     @staticmethod
     def sample_game():

@@ -1,6 +1,7 @@
 import random
 from typing import TYPE_CHECKING
 from Cards import Hand, NullHand, Card
+from MyErrors import IllegalMoveError
 from Players import Player
 import torch
 
@@ -9,9 +10,15 @@ if TYPE_CHECKING:
 
 
 class RandomPlayer(Player):
-    def __init__(self, name: str, discard_acceptance_probability: float = 0.5):
+    def __init__(
+        self,
+        name: str,
+        printable: bool = False,
+        discard_acceptance_probability: float = 0.5,
+    ):
         super().__init__(name)
         self.discard_acceptance_probability = discard_acceptance_probability
+        self.printable = printable
 
     def play_turn(self, game: Game) -> None:
         # Draw a card from the draw pile
@@ -21,14 +28,17 @@ class RandomPlayer(Player):
         ):
             drawn_card = self._get_top_discarded_card(game)
         else:
-            drawn_card = self._draw(game)
+            try:
+                drawn_card = self._draw(game)
+            except IndexError:
+                return
 
         # Place the drawn card in a random position
         row = random.randint(0, 2)
         col = random.randint(0, 2)
-        print(f"Placing {drawn_card} at ({row}, {col})")
+        print(f"Placing {drawn_card} at ({row}, {col})") if self.printable else None
         self._place_card(row, col, drawn_card, game)  # type: ignore
-        print(f"New hand:\n{self.hand}\n")
+        print(f"New hand:\n{self.hand}\n") if self.printable else None
 
 
 class NeuralNetworkPlayer(Player):
@@ -44,11 +54,14 @@ class NeuralNetworkPlayer(Player):
     row_0_col_0, row_0_col_1, row_0_col_2, row_1_col_0,
     row_1_col_1, row_1_col_2, row_2_col_0, row_2_col_1,
     row_2_col_2, discard_drawn_card]
+
+    Total input size: 15
+    Total output size: 12
     """
 
-    def __init__(self, name: str, model_path: str, printable: bool = False):
+    def __init__(self, name: str, model: torch.nn.Module, printable: bool = False):
         super().__init__(name)
-        self.model: torch.nn.Module = torch.load(model_path)
+        self.model: torch.nn.Module = model
         self.model.eval()
         self.printable = printable
 
@@ -64,12 +77,12 @@ class NeuralNetworkPlayer(Player):
             drawn_card = self._get_top_discarded_card(game)
             print(f"Drew from discard pile: {drawn_card}") if self.printable else None
             if drawn_card is None:
-                raise ValueError("Discard pile is empty. Cannot draw a card.")
+                raise IllegalMoveError("Discard pile is empty. Cannot draw a card.")
         else:
             drawn_card = self._draw(game)
             print(f"Drew from draw pile: {drawn_card}") if self.printable else None
             if drawn_card is None:
-                raise ValueError("Draw pile is empty. Cannot draw a card.")
+                raise IllegalMoveError("Draw pile is empty. Cannot draw a card.")
 
         # Place the drawn card based on the neural network's prediction
         ___, row, col = self.get_output(game, drawn_card)
@@ -110,23 +123,37 @@ class NeuralNetworkPlayer(Player):
             min_opponent_cards_remaining,
             opponent_hand_total,
         ]
-        return torch.tensor(input_vector, dtype=torch.float32).unsqueeze(0)
 
-    def get_output(self, game: Game, drawn_card: Card | None) -> tuple[bool, int, int]:
-        """Get the model's output for a given game state and drawn card."""
+        device = next(self.model.parameters()).device
+
+        return torch.tensor(
+            input_vector,
+            dtype=torch.float32,
+            device=device,
+        ).unsqueeze(0)
+
+    def get_output(
+        self,
+        game: Game,
+        drawn_card: Card | None
+    ) -> tuple[bool, int, int]:
+
         input_tensor = self._prepare_input(game, drawn_card)
-        output = self.model(input_tensor)
-        draw_from_discard = (
-            torch.argmax(output[:, :2]).item() == 1
-        )  # Draw pile, discard pile
+
+        with torch.no_grad():
+            output = self.model(input_tensor)
+
+        draw_from_discard = torch.argmax(output[:, :2]).item() == 1
 
         highest_index = 0
-        highest_value = 0
-        for i in range(2, 12):  # 3x3 grid + discard
+        highest_value = float("-inf")
+
+        for i in range(2, 12):
             if output[0, i] > highest_value:
                 highest_value = output[0, i]
                 highest_index = i
-        if highest_index == 11:  # Discard drawn card
+
+        if highest_index == 11:
             row, col = -1, -1
         else:
             row = (highest_index - 2) // 3
